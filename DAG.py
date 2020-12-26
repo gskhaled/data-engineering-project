@@ -140,7 +140,7 @@ def extract_happiness_data(**kwargs):
         'Perceptions of corruption': 'Trust_Government_Corruption',
         'Social support': 'Family'
     }, inplace=True)
-    df_happiness2019 = pd.read_csv('./data/Happiness_Dataset/2015.csv')
+    df_happiness2019 = pd.read_csv('./data/Happiness_Dataset/2019.csv')
     df_happiness2019.rename(columns={
         'Happiness Rank': 'Happiness_Rank',
         'Happiness Score': 'Happiness_Score',
