@@ -46,9 +46,9 @@ Moreover, We also integrated with an external dataset in order to get accurate P
         c. Loading the data into new CSV files. These files are saved onto disk with new names.
 
 
-This was achieved by creating a **DAG.py** file, which can be found on the repository. This file is supposed to be placed in an airflowhome directory, inside the **dag** folder, from which an Airflow pipeline would be initiated. Moreover, there is another file that needs to be places inside the same **dag** folder, which is the **ML.py** file. This file is called by the **DAG.py** file in order to run a machine learning model (linear regression) in order to predict values in one of the datasets. This file is ran as a *BashOperator* so it needs to be present in the same directory.   
+This was achieved by creating a **DAG.py** file, which can be found on the repository. This file is supposed to be placed in an airflowhome directory, inside the **dag** folder, from which an Airflow pipeline would be initiated. Moreover, there is another file that needs to be placed inside the same **dag** folder, which is the **ML.py** file. This file is called by the **DAG.py** file in order to run a machine learning model (linear regression) in order to predict values in one of the datasets. This file is ran as a *BashOperator* so it needs to be present in the same directory.   
 
-This directory must also include a **data** directory which should hold all the needed CSV files in the extract phase (the 3 datasets mentioned earlier).  
+This directory (airflowhome) must also include a **data** directory which should hold all the needed CSV files in the extract phase (the 3 datasets mentioned earlier).  
 
 The DAG is then initiated from the Airflow terminal.  
 
