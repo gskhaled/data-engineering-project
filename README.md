@@ -41,19 +41,12 @@ Moreover, We also integrated with an external dataset in order to get accurate P
 ### Milestone 2B:
     
     1. Creating a simplified ETL pipeline using Airflow.  
-        a. Extracting the data from a CSV file.  
-        b. Transforming the data by working on it (cleaning and tidying).  
-        c. Loading the data into new CSV files.  
+        a. Extracting the data from a CSV file. Each dataset is read and sent as a pd.DataFrame to the next phase.
+        b. Transforming the data by working on it (cleaning and tidying).   
+        c. Loading the data into new CSV files. These files are saved onto disk with new names.
 
 
-This was achieved by creating a **DAG.py** file, which can be found on the repository. This file is supposed to be placed in an airflowhome directory, inside the **dag** folder, from which an Airflow pipeline would be initiated. Moreover, there is another file that needs to be places inside the same **dag** folder, which is the **ML.py** file. This file is called by the **DAG.py** file in order to run a machine learning model (linear regression) in order to predict values in one of the datasets. This file is ran as a *BashOperator* so it need to be present in the same directory.  
-
-Finally, in order to run the DAG, the **DAG.py** as well as **ML.py** need to be modified with the user's file location on disk. This can be done by these steps:  
-    
-    1. Open **DAG.py**.  
-    2. In line 472, replace "/c/Users/gasse/airflowhome" with the location on the user's disk. Keep the remaining string as is!  
-    3. Open **ML.py**.  
-    4. In line 9 and 58, replace both "c/Users/gasse/airflowhome" with the location on the user's disk. Keep the remaning string as is!  
+This was achieved by creating a **DAG.py** file, which can be found on the repository. This file is supposed to be placed in an airflowhome directory, inside the **dag** folder, from which an Airflow pipeline would be initiated. Moreover, there is another file that needs to be places inside the same **dag** folder, which is the **ML.py** file. This file is called by the **DAG.py** file in order to run a machine learning model (linear regression) in order to predict values in one of the datasets. This file is ran as a *BashOperator* so it needs to be present in the same directory.   
 
 This directory must also include a **data** directory which should hold all the needed CSV files in the extract phase (the 3 datasets mentioned earlier).  
 
