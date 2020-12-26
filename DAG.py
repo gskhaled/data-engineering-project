@@ -3,19 +3,15 @@ import requests
 import json
 import numpy as np
 import pandas as pd
-# from sklearn.linear_model import LinearRegression
-# from sklearn.preprocessing import MinMaxScaler
-
 from datetime import datetime
 from datetime import date
-# Operators; we need this to operate!
+
 from airflow.operators.python_operator import PythonOperator
 from airflow.operators.bash_operator import BashOperator
 from airflow import DAG
 
 # step 2 - define default args
 # These args will get passed on to each operator
-# You can override them on a per-task basis during operator initialization
 default_args = {
     'owner': 'airflow',
     'depends_on_past': False,
@@ -31,43 +27,58 @@ dag = DAG(
 )
 
 # HELPER METHODS
-def countriesWithoutXRecords(df, countries, c):
+# Method to that returns a list of countries that don't have a "c" amount of records in the DF.
+def countriesWithoutXRecords(df, c):
     result = []
+    countries = df.groupby('Country').groups.keys()
     for country in countries:
         count = df[df['Country'] == country]['Country'].count()
         if count < c:
             result.append(country)
     return result
 
-# Function to calculate the mean of *col* in a dataframe based on a condition passed along in the *compareCol* and *compareTo*.
+# Function to calculate the mean of *col* in a dataframe based on a condition 
+# passed along in the *compareCol* and *compareTo*.
 def calculateMean(df, compareCol, compareTo, col):
     return df[df[compareCol] == compareTo][col].mean()
 
-#  Function to replace values with *valueToReplace* in a dataframe based on a condition on the *compareCol* using a *compareTo* value in a specific *col*.
+#  Function to replace values with *valueToReplace* in a dataframe based on a condition 
+# on the *compareCol* using a *compareTo* value in a specific *col*.
 def replaceNaN(df, compareCol, compareTo, col, valueToReplace):
     df[col] = df.apply(lambda row: valueToReplace if (
         np.isnan(row[col]) and row[compareCol] == compareTo) else row[col], axis=1)
 
-# We will replace all values that mostly don't make sense using these conditional values.
+# Function that replaces values in a *col* in a DF using the *valueToReplace*.
 def replace(df, col, valueToReplace):
     df[col] = df.apply(lambda row: valueToReplace if (
         row[col] >= valueToReplace) else row[col], axis=1)
 
-
+# Function that applies the country value replacements (used in imputing).
 def applyCountryReplacement(df, col, country, compareTo, valueToReplace, right):
     if right:
-        df.loc[(df.Country == country) & (
-            df[col] > compareTo), col] = valueToReplace
+        # Removing outliers to the right
+        df.loc[(df.Country == country) & (df[col] > compareTo), col] = valueToReplace
     else:
-        df.loc[(df.Country == country) & (
-            df[col] < compareTo), col] = valueToReplace
+        # Removing outliers to the left
+        df.loc[(df.Country == country) & (df[col] < compareTo), col] = valueToReplace
+
+# Returns a list of countries in a DF
+def getCountriesList(df):
+    return df.groupby(['Country']).groups.keys()
+
 
 # step 4 Define tasks
+# This method reads the 250 Country Data CSV file into a DF
+# to be passed to the downstream.
 def extract_country_data(**kwargs):
     df_countryData = pd.read_csv('./data/250 Country Data.csv')
     return df_countryData.to_json()
 
-
+# This method reads the Happiness Datasets CSV files into a multiple
+# dataframes, to be passed to the downstream.
+# It also renames the columns appropriately, adds a Year column
+# to each DF from each CSV file, drops the uncommon columns and 
+# finally joins them to a datafram to be passed to the downstream.
 def extract_happiness_data(**kwargs):
     df_happiness2015 = pd.read_csv('./data/Happiness_Dataset/2015.csv')
     df_happiness2015.rename(columns={
@@ -122,6 +133,8 @@ def extract_happiness_data(**kwargs):
         'Trust (Government Corruption)': 'Trust_Government_Corruption',
         'Dystopia Residual': 'Dystopia_Residual'
     }, inplace=True)
+
+    # Adding the year column to every dataframe with the Year value.
     df_happiness2015["Year"] = 2015
     df_happiness2016["Year"] = 2016
     df_happiness2017["Year"] = 2017
@@ -129,6 +142,7 @@ def extract_happiness_data(**kwargs):
     df_happiness2019["Year"] = 2019
     df_happiness = pd.concat([df_happiness2015, df_happiness2016,
                               df_happiness2017, df_happiness2018, df_happiness2019])
+    # Resorting the dataframe by country and Year to group countries together.
     df_happiness.sort_values(by=['Country', 'Year'], inplace=True)
 
     columnsIn2015Happiness = np.array(df_happiness2015.columns)
@@ -136,6 +150,7 @@ def extract_happiness_data(**kwargs):
     columnsIn2017Happiness = np.array(df_happiness2017.columns)
     columnsIn2018Happiness = np.array(df_happiness2018.columns)
     columnsIn2019Happiness = np.array(df_happiness2019.columns)
+    # This will be the columns that are common between all datasets.
     columnsInAllHappinessDatasets = np.intersect1d(
         np.intersect1d(
             np.intersect1d(
@@ -149,11 +164,16 @@ def extract_happiness_data(**kwargs):
         ),
         columnsIn2019Happiness
     )
+    # Keeping only the common columns.
     df_happiness = df_happiness[columnsInAllHappinessDatasets]
+    # Rebuilding the index.
     df_happiness.reset_index(drop=True, inplace=True)
     return df_happiness.to_json()
 
-
+# This method reads the Life expectancy Dataset CSV file into a DF
+# to be passed to the downstream.
+# It also renames the columns by removing trailing spaces
+# and adjusting the column naming convention to match the other files.
 def extract_lifeExpectancy_data(**kwargs):
     df_lifeExpectancy = pd.read_csv('./data/Life Expectancy Data.csv')
     df_lifeExpectancy.set_index(['Country', 'Year'])
@@ -177,10 +197,10 @@ def extract_lifeExpectancy_data(**kwargs):
     }, inplace=True)
     return df_lifeExpectancy.to_json()
 
-
+# Rename the columns in the Country DF.
 def work_on_country_data(**context):
-    body = context['task_instance'].xcom_pull(
-        task_ids='extract_country_data')
+    body = context['task_instance'].xcom_pull( task_ids='extract_country_data')
+    # Create a DF from the extracted json file from stream.
     df_countryData = pd.DataFrame(json.loads(body))
     df_countryData.rename(columns={'name': 'Country'}, inplace=True)
     df_countryData.drop('Unnamed: 0', inplace=True, axis=1)
@@ -195,44 +215,47 @@ def work_on_country_data(**context):
         'Inflation(%)': 'Inflation',
         'Unemployement(%)': 'Unemployment'
     }, inplace=True)
+    # Writing to disk the new country dataset file after tidying.
     df_countryData.to_csv("data/Country Dataset NEW.csv", index=False)
 
 
 def work_on_happiness_data(**context):
-    body = context['task_instance'].xcom_pull(
-        task_ids='extract_happiness_data')
+    body = context['task_instance'].xcom_pull(task_ids='extract_happiness_data')
+    # Create a DF from the extracted json file from stream.
     df_happiness = pd.DataFrame(json.loads(body))
-    df_happiness['Country'] = df_happiness['Country'].replace(
-        {'&': 'and'}, regex=True)
+    # Removing any '&' to be replaced with a full 'and', to maintain a naming convention.
+    df_happiness['Country'] = df_happiness['Country'].replace({'&': 'and'}, regex=True)
+    # Renaming the countries to match the naming in other datasets.
     df_happiness['Country'] = df_happiness['Country'].replace({
         'Northern Cyprus': 'North Cyprus',
         'Somaliland region': 'Somaliland Region',
         'Taiwan Province of China': 'Taiwan',
         'Hong Kong S.A.R., China': 'Hong Kong'
     })
-    countries = df_happiness.groupby('Country').groups.keys()
-    countriesWithout5Records = countriesWithoutXRecords(
-        df_happiness, countries, 5)
-    df_happiness = df_happiness.loc[(
-        ~df_happiness['Country'].isin(countriesWithout5Records)), :]
+    # Dropping the countries that don't have values for all 5 years (2015 to 2019).
+    countriesWithout5Records = countriesWithoutXRecords(df_happiness, 5)
+    df_happiness = df_happiness.loc[(~df_happiness['Country'].isin(countriesWithout5Records)), :]
     df_happiness.to_csv("data/Happiness Dataset NEW.csv", index=False)
 
 
 def work_on_lifeExpectancy_data(**context):
-    body = context['task_instance'].xcom_pull(
-        task_ids='extract_lifeExpectancy_data')
+    body = context['task_instance'].xcom_pull(task_ids='extract_lifeExpectancy_data')
+    # Create a DF from the extracted json file from stream.
     df_lifeExpectancy = pd.DataFrame(json.loads(body))
-    countriesInLifeExpectancy = df_lifeExpectancy.groupby(
-        'Country').groups.keys()
-    countriesWithout16Records = countriesWithoutXRecords(
-        df_lifeExpectancy, countriesInLifeExpectancy, 16)
+    # Removing the countries without 16 records (i.e: countries that don't have values for
+    # all the years from 2000 to 2015)
+    countriesWithout16Records = countriesWithoutXRecords(df_lifeExpectancy, 16)
     df_lifeExpectancy = df_lifeExpectancy.loc[(
         ~df_lifeExpectancy['Country'].isin(countriesWithout16Records)), :]
-    df_lifeExpectancy = df_lifeExpectancy[['Country', 'Year', 'Status', 'Life_Expectancy', 'Adult_Mortality',
-                                           'Infant_Deaths', 'Measles', 'Polio', 'Diphtheria', 'HIV/AIDS', 'Thinness_5-9_Years', 'Thinness_10-19_Years']]
+    # Keeping only these columns as they are the columns of interest with the 
+    # our research questions.
+    df_lifeExpectancy = df_lifeExpectancy[['Country', 'Year', 'Status', 'Life_Expectancy', 
+                                            'Adult_Mortality', 'Infant_Deaths', 'Measles', 
+                                            'Polio', 'Diphtheria', 'HIV/AIDS', 'Thinness_5-9_Years', 
+                                            'Thinness_10-19_Years']]
     df_lifeExpectancy.to_csv('data/Life Expectancy Dataset NEW.csv', index=False)
 
-
+# Imputing the values in the life expectancy dataset.
 def impute_lifeExpectancy_data():
     df_lifeExpectancy = pd.read_csv('./data/Life Expectancy Dataset NEW.csv')
     averageOfDevelopedPolio = calculateMean(
@@ -255,6 +278,7 @@ def impute_lifeExpectancy_data():
     averageOfDevelopingThinness2 = calculateMean(
         df_lifeExpectancy, 'Status', 'Developing', 'Thinness_10-19_Years')
 
+    # Replace the NaN values using the averages from above.
     replaceNaN(df_lifeExpectancy, 'Status', 'Developed',
                'Polio', averageOfDevelopedPolio)
     replaceNaN(df_lifeExpectancy, 'Status', 'Developing',
@@ -286,26 +310,88 @@ def impute_lifeExpectancy_data():
     maxValueSatisfyingConditionInfantDeaths = df_lifeExpectancy[~(
         df_lifeExpectancy['Infant_Deaths'] > maxValueOfInfantDeaths)]['Infant_Deaths'].max()
 
+    # Replacing the values in life expectancy that are outliers (more than highest whisker)
     replace(df_lifeExpectancy, 'Measles', maxValueSatisfyingConditionMeasles)
     replace(df_lifeExpectancy, 'Infant_Deaths',
             maxValueSatisfyingConditionInfantDeaths)
 
-    countriesInLifeExpectancy = df_lifeExpectancy.groupby(
-        'Country').groups.keys()
+    countriesInLifeExpectancy = df_lifeExpectancy.groupby('Country').groups.keys()
     # Removing outliers from the left and from the right.
     for country in countriesInLifeExpectancy:
         for col in df_lifeExpectancy.columns[4:]:
             maxValue = (IQR[col] * 1.5) + Q3[col]
             minValue = Q1[col] - (IQR[col] * 1.5)
             mean = calculateMean(df_lifeExpectancy, 'Country', country, col)
-            applyCountryReplacement(
-                df_lifeExpectancy, col, country, maxValue, mean, True)
-            applyCountryReplacement(
-                df_lifeExpectancy, col, country, minValue, mean, False)
-    df_lifeExpectancy.to_csv(
-        "data/Life Expectancy Dataset NEW.csv", index=False)
+            applyCountryReplacement(df_lifeExpectancy, col, country, maxValue, mean, True)
+            applyCountryReplacement(df_lifeExpectancy, col, country, minValue, mean, False)
+    df_lifeExpectancy.to_csv("data/Life Expectancy Dataset NEW.csv", index=False)
 
 
+def join_datasets():
+    # Importing all the three datasets
+    df_lifeExpectancy = pd.read_csv('./data/Life Expectancy Dataset NEW.csv')
+    df_happiness = pd.read_csv('./data/Happiness Dataset NEW.csv')
+    df_countryData = pd.read_csv('./data/Country Dataset NEW.csv')
+    # Renaming the countries in life expectancy to be able to join by having
+    # a consistent naming scheme.
+    df_lifeExpectancy['Country'] = df_lifeExpectancy['Country'].replace({
+        'Iran (Islamic Republic of)': 'Iran',
+        'Democratic Republic of the Congo': 'Congo (Kinshasa)',
+        'Congo': 'Congo (Brazzaville)',
+        'United Republic of Tanzania': 'Tanzania',
+        'Russian Federation': 'Russia',
+        'United States of America': 'United States',
+        'Venezuela (Bolivarian Republic of)': 'Venezuela',
+        "Côte d'Ivoire": 'Ivory Coast',
+        'Viet Nam': 'Vietnam',
+        'Republic of Korea': 'South Korea',
+        'Syrian Arab Republic': 'Syria',
+        "Lao People's Democratic Republic": 'Laos',
+        'Republic of Moldova': 'Moldova',
+        'United Kingdom of Great Britain and Northern Ireland': 'United Kingdom',
+        'Bolivia (Plurinational State of)': 'Bolivia',
+        'The former Yugoslav republic of Macedonia': 'Macedonia',
+        'Czechia': 'Czech Republic'
+    })
+    # Finding the common countries between life expectancy and happiness datasets.
+    countries_lifeExpectancy_happiness = set(getCountriesList(df_lifeExpectancy)) & set(getCountriesList(df_happiness))
+    # Renaming the countries in country data to be able to join by having
+    # a consistent naming scheme.
+    df_countryData['Country'] = df_countryData['Country'].replace({
+        'Iran (Islamic Republic of)': 'Iran',
+        'Tanzania, United Republic of': 'Tanzania',
+        'Congo': 'Congo (Brazzaville)',
+        'Congo (Democratic Republic of the)': 'Congo (Kinshasa)',
+        'Russian Federation': 'Russia',
+        'United States of America': 'United States',
+        'Venezuela (Bolivarian Republic of)': 'Venezuela',
+        "Côte d'Ivoire": 'Ivory Coast',
+        'Viet Nam': 'Vietnam',
+        'Korea (Republic of)': 'South Korea',
+        'Syrian Arab Republic': 'Syria',
+        "Lao People's Democratic Republic": 'Laos',
+        'Moldova (Republic of)': 'Moldova',
+        'United Kingdom of Great Britain and Northern Ireland': 'United Kingdom',
+        'Bolivia (Plurinational State of)': 'Bolivia',
+        'Macedonia (the former Yugoslav Republic of)': 'Macedonia'
+    })
+    # The list of countries common between all threee datasets.
+    countries_joinedThree = set(getCountriesList(df_countryData)) & set(countries_lifeExpectancy_happiness)
+    # Removing uncommon countries.
+    df_countryData = df_countryData.loc[(df_countryData['Country'].isin(countries_joinedThree)), :]
+    df_happiness = df_happiness.loc[(df_happiness['Country'].isin(countries_joinedThree)), :]
+    df_lifeExpectancy = df_lifeExpectancy.loc[(df_lifeExpectancy['Country'].isin(countries_joinedThree)), :]
+    # Joining the datasets together.
+    df_merged_expectancyHappiness = pd.merge(df_lifeExpectancy, df_happiness, on=['Country', 'Year'], how='inner')
+    df_mergedThree = pd.merge(df_merged_expectancyHappiness, df_countryData, on='Country', how='inner')
+
+    # Writing the merged datasets to a new CSV file.
+    df_mergedThree.to_csv("data/Merged Datasets.csv", index=False)
+
+# This function does the work needed in order to answer the first research question
+# which is: "What is the relationship between life expectency and happiness in each Region?"
+# The function then writes a CSV file that has the needed data in order to answer this question.
+# It outputs a DF with 3 columns, Region, Life_Expectancy value as well as the Happiness_Score.
 def answer_research_q1():
     df_mergedThree = pd.read_csv('./data/Merged Datasets.csv')
     regions = df_mergedThree.groupby('Region').groups.keys()
@@ -378,15 +464,19 @@ imputeLifeExpectancy = PythonOperator(
     dag=dag,
 )
 
+# Using a bash operator in order to apply linear regression prediciton
+# in the life expectancy dataset values as we cannot import sklearn library
+# in DAG file and has to be imported in a standalone python file.
 applyLinearRegression = BashOperator(
     task_id='apply_linear_regression',
     bash_command='python ../../../../c/Users/gasse/airflowhome/dags/ML.py',
     dag=dag,
 )
 
-joinThreeDatasets = BashOperator(
-    task_id='joining_three_datasets',
-    bash_command='python ../../../../c/Users/gasse/airflowhome/dags/DatasetsJoin.py',
+joinThreeDatasets = PythonOperator(
+    task_id='join_the_three_datasets_together',
+    provide_context=True,
+    python_callable=join_datasets,
     dag=dag,
 )
 
