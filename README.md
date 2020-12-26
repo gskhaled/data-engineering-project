@@ -8,11 +8,11 @@
     4. Marwan Karim.
     
 This repository contains a notebook that demonstates our data engineering process for three datasets, which are:
-    1. [World Happiness Report](https://www.kaggle.com/unsdsn/world-happiness)
-    2. [All 250 Country Data](https://www.kaggle.com/souhardyachakraborty/all-250-country-data)
-    3. [Life Expectancy (WHO)](https://www.kaggle.com/kumarajarshi/life-expectancy-who)
+    1. [World Happiness Report](https://www.kaggle.com/unsdsn/world-happiness)  
+    2. [All 250 Country Data](https://www.kaggle.com/souhardyachakraborty/all-250-country-data)  
+    3. [Life Expectancy (WHO)](https://www.kaggle.com/kumarajarshi/life-expectancy-who)  
 
-We also integrated with an external dataset in order to get accurate Population figures for the available countries from [here](https://population.un.org/wpp/Download/Standard/Population/).
+We also integrated with an external dataset in order to get accurate Population figures for the available countries from [here](https://population.un.org/wpp/Download/Standard/Population/).  
 
 ## Milestone 1:
 
@@ -46,14 +46,14 @@ We also integrated with an external dataset in order to get accurate Population 
         b. Transforming the data by working on it (cleaning and tidying).
         c. Loading the data into new CSV files.
         
-This was achieved by creating a DAG.py file, which can be found on the repository. This file is supposed to be placed in an airflowhome directory, inside the **dag** folder, from which an Airflow pipeline would be initiated. Moreover, there is another file that needs to be places inside the same **dag** folder, which is the ML.py file. This file is called by the DAG.py file in order to run a machine learning model (linear regression) in order to predict values in one of the datasets. This file is ran as a *BashOperator* so it need to be present in the same directory.
-This directory must also include a **data** directory which should hold all the needed CSV files in the extract phase (the 3 datasets mentioned earlier).
+This was achieved by creating a DAG.py file, which can be found on the repository. This file is supposed to be placed in an airflowhome directory, inside the **dag** folder, from which an Airflow pipeline would be initiated. Moreover, there is another file that needs to be places inside the same **dag** folder, which is the ML.py file. This file is called by the DAG.py file in order to run a machine learning model (linear regression) in order to predict values in one of the datasets. This file is ran as a *BashOperator* so it need to be present in the same directory.  
+This directory must also include a **data** directory which should hold all the needed CSV files in the extract phase (the 3 datasets mentioned earlier).  
 The DAG is then initiated from the Airflow terminal.
-Upon completion, the **data** directory would contain 5 new CSV files named:
+Upon completion, the **data** directory would contain 5 new CSV files named:  
     1. Country Dataset NEW
     2. Happiness Dataset NEW
     3. Life Expectancy NEW
     4. Merged Datasets
     5. Research Question 1 Answer
-The two CSV files named "Merged Datasets" and "Research Question 1 Answer" are the CSV files of interest. They have the complete, merged datasets as well as the dataframe that would be used to answer our first research question respectively.
+The two CSV files named "Merged Datasets" and "Research Question 1 Answer" are the CSV files of interest. They have the complete, merged datasets as well as the dataframe that would be used to answer our first research question respectively.  
 
