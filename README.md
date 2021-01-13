@@ -62,3 +62,59 @@ Upon completion, the **data** directory would contain 5 new CSV files named:
 
 The two CSV files named "Merged Datasets" and "Research Question 1 Answer" are the CSV files of interest. They have the complete, merged datasets as well as the dataframe that would be used to answer our first research question respectively.  
 
+## Milestone 3
+In this milestone we were supposed to create a create a pipeline using Airflow. This pipeline which was scheduled to run daily for 4 days and performed the following steps:  
+
+1. Fetching 50 tweets from 2 different countries, a country that we categorized unhappy (Egypt) and a country that was categorized to be happy (Canada).  This was found out using the previous analysis in milestone 2.
+2. We performed some text cleaning. We disregarded retweets, removed links and emojis.
+3. We performed sentiment analysis (polarity and subjectivity) on the tweets using python's [Textblob library.](https://textblob.readthedocs.io/en/dev/)
+4. We then calculated the average of these sentiments for each day and was outputted to a file storing the average sentiments for each country. We also compared this average with the happiness score of the country in 2019 (using the happiness dataset).
+5. An extra step was performed on the happiness dataset happiness score. The values of polarity are from -1 to 1. The happiness score from the happiness dataset and the happiness (polarity) from the tweets are inconsistent. Therefore, we normalized the happiness scores in the happiness dataset for the year 2019 using the [MinMaxScaler](https://scikit-learn.org/stable/modules/generated/sklearn.preprocessing.MinMaxScaler.html) from -1 to 1. This enabled us to do a more realistic comparison of the happiness averages. 
+
+**Dag file flow:**
+The dag file is split into 3 separate bash operators that run 3 different python scripts.
+1. Extracting data from the twitter API using [tweepy.](https://www.tweepy.org/). This is done through the *Extract*.py file.
+2. Cleaning and preforming sentiment analysis. Done through *Transform*.py file.
+3. Calculating the average and comparing it to the happiness dataset. Done through *Average*.py file.
+
+### Requirements:
+Some requirements are needed in order to be able to run the Twitter DAG file. The *Twitter_DAG.py* file can be found on the repository. This file is supposed to be placed in an airflowhome directory, inside the **dags** folder, from which an Airflow pipeline would be initiated. Moreover, the three files listed above (*Extract*.py,  *Transform*.py and *Average*.py) should be placed inside the **dags** folder. Finally, the CSV file outputs from the previous pipeline in Milestone 2B should also be available.
+
+Using the above scripts (bash operators) will require extra python packages to be installed onto the VM. These are:
+			
+	1. pip3
+	2. python3
+	3. tweepy
+	4. textblob
+	5. pandas
+	6. re
+	7. nltk
+	8. sklearn.preprocessing
+<n>
+
+Moreover, a *TwitterConfig*.py file is also needed to be included in the **dags** folder. It will include this *twitter* object, which has the needed keys extracted from the twitter development account. This file has not been added to the repository in order to preserve the confidentiality of these keys.
+
+    twitter = {
+			'consumer_key': '',
+			'consumer_secret': '',
+			'key': '',
+			'secret': ''
+	}
+
+### Output
+Inside the data folder uploaded, there is the output .CSV files from running the Airflow pipeline for 5 days.
+The CSV files that have the tweets have columns: 
+			
+	1. Country (the name of the country from which the tweet is)
+	2. Screen_name (the user name that wrote the tweets)
+	3. Tweet (the tweet text file after cleaning)
+	4. Polarity
+	5. Subjectivity
+
+The CSV file that has the Tweets Averages has these columns:
+		
+	1. Country
+	2. Date (time stamp in which the tweet was calculated)
+	3. Average_Polarity (for the day)
+	4. Average_Subjectivity (for the day)
+	5. Comparison_To_Happiness_Score (whether the day average is greater or less than the happiness_Score)
