@@ -80,7 +80,7 @@ The dag file is split into 3 separate bash operators that run 3 different python
 ### Requirements:
 Some requirements are needed in order to be able to run the Twitter DAG file. The *Twitter_DAG.py* file can be found on the repository. This file is supposed to be placed in an airflowhome directory, inside the **dags** folder, from which an Airflow pipeline would be initiated. Moreover, the three files listed above (*Extract*.py,  *Transform*.py and *Average*.py) should also be placed inside the **dags** folder. Finally, the CSV file outputs from the previous pipeline in Milestone 2B should also be available inside the **data** folder.
 
-Using the above scripts (bash operators) will require extra python packages to be installed onto the VM. These scripts run in the terminal of the VM using the command **pyhon3 SCRIPT_NAME"**, where SCRIPT_NAME is to be replaced with one of these **.py** files. These packages are:
+Using the above scripts (bash operators) will require extra python packages to be installed onto the VM. These scripts run in the terminal of the VM using the command **"python3 SCRIPT_NAME"**, where SCRIPT_NAME is to be replaced with one of these **.py** files. These packages are:
 			
 	1. pip3
 	2. python3
